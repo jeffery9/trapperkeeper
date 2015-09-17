@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 from sqlalchemy import desc, func, or_
 
-from trapdoor.utils import TrapdoorHandler
+from trapdoor.utils import TrapdoorHandler,redis_connect
 from trapperkeeper.models import Notification, VarBind
 
 def filter_query(query, host, oid, severity):
@@ -72,6 +72,26 @@ class Index(TrapdoorHandler):
 
         return self.render(
             "index.html", traps=traps, now=now, num_active=num_active,
+            host=host, oid=oid, severity=severity, offset=offset, limit=limit)
+
+class Wall(TrapdoorHandler):
+    def get(self):
+        offset = int(self.get_argument("offset", 0))
+        limit = int(self.get_argument("limit", 50))
+        if limit > 100:
+            limit = 100
+
+        host = self.get_argument("host", None)
+        if host is None:
+            host = self.get_argument("hostname", None)
+        oid = self.get_argument("oid", None)
+        severity = self.get_argument("severity", None)
+
+        now = datetime.utcnow()
+        traps, num_active = _get_traps(self.db, offset, limit, host, oid, severity)
+
+        return self.render(
+            "wall.html", traps=traps, now=now, num_active=num_active,
             host=host, oid=oid, severity=severity, offset=offset, limit=limit)
 
 class Resolve(TrapdoorHandler):
@@ -176,3 +196,5 @@ class ApiTraps(TrapdoorHandler):
         traps, num_active = _get_traps(self.db, offset, limit, host, oid, severity)
 
         self.write(json.dumps([trap.to_dict() for trap in traps]))
+
+
