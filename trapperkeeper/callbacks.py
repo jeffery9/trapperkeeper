@@ -64,7 +64,7 @@ class TrapperCallback(object):
         ctxt = dict(trap=trap, dest_host=self.hostname)
         try:
             stats.incr("mail_sent_attempted", 1)
-            send_trap_email(recipients, "trapperkeeper",
+            send_trap_email(recipients, "trapperkeeper@localhost",
                             subject, self.template_env, ctxt)
             stats.incr("mail_sent_successful", 1)
         except socket.error as err:
