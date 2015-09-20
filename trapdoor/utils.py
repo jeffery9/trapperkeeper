@@ -1,20 +1,6 @@
 import urllib
-
 import tornado.web
-
 from trapdoor.settings import settings
-
-
-# Redis modules.
-import brukva
-
-# General modules.
-import os, os.path
-import logging
-import sys
-from threading import Timer
-import string
-import random
 
 # Tornado modules.
 import tornado.ioloop
@@ -23,11 +9,6 @@ import tornado.websocket
 import tornado.auth
 import tornado.options
 import tornado.escape
-from tornado import gen
-
-# Redis modules.
-import brukva
-
 
 class TrapdoorHandler(tornado.web.RequestHandler):
 
@@ -52,9 +33,6 @@ class TrapdoorHandler(tornado.web.RequestHandler):
         self.set_status(404)
         self.render("errors/notfound.html")
 
-
-
-
 def print_date(date_obj):
     if date_obj is None:
         return ""
@@ -62,11 +40,9 @@ def print_date(date_obj):
     date_obj = date_obj.astimezone(settings["timezone"])
     return date_obj.strftime(settings["date_format"])
 
-
 jinja2_filters = {
     "print_date": print_date,
 }
-
 
 def update_qs(qs, **kwargs):
     qs = qs.copy()
@@ -76,4 +52,3 @@ def update_qs(qs, **kwargs):
 jinja2_globals = {
     "update_qs": update_qs,
 }
-

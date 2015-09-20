@@ -3,7 +3,7 @@
  * @todo: Add user cookie for authentication.
  */
 var host = location.origin.replace(/^http/, 'ws')
-var ws = new WebSocket(host +"/socket/" + location.pathname.replace('/room/', '').replace('/', ''));
+var ws = new WebSocket(host +"/socket/" + location.pathname.replace('/channel/', '').replace('/', ''));
 
 
 /**
