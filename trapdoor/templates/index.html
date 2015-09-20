@@ -87,7 +87,7 @@
 
 <div class="row">&nbsp;</div>
 
-<div class="row"><div class="col-sm-12">
+<div class="row"><div id="table" class="col-sm-12">
     <table class="table">
         <tr>
             <th>&nbsp;</th>
@@ -134,13 +134,13 @@
                 <td><a href="/{{ update_qs(request.arguments, offset=0, host=trap.host) }}">{{trap.host|hostname_or_ip}}</a></td>
                 <td><a href="/{{ update_qs(request.arguments, offset=0, oid=trap.oid) }}">{{trap.oid|to_mibname}}</a></td>
                 <td>{{trap.sent_utc|print_date}}</td>
-                <td>{{trap.expires_utc|print_date}}</span></td>
+                <td><span>{{trap.expires_utc|print_date}}</span></td>
             </tr>
             <tr id="trap-details-row-{{trap.id}}" class="trap-details-row">
                 <td class="trap-extend" colspan="5">
                     <div id="toggle-details-{{trap.id}}" class="collapse toggle-details">
                         <div style="padding-left: 30px;"id="trap-details-{{trap.id}}">
-                        </div
+                        </div>
                     </div>
                 </td>
             </tr>

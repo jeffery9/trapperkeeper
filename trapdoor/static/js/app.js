@@ -21,14 +21,17 @@ $(document).ready(function() {
     ws.onopen = function() {
         console.log("Connected...");
     };
-    ws.onmessage = function(event) {
+    ws.onmessage = function (event) {
         data = JSON.parse(event.data);
-        setTimeout($.playSound('../static/mp3/msg'),500);
+        if (data.severity == "warning" || data.severity == "critical") {
+            setTimeout($.playSound('../static/mp3/msg'), 650);
+        }
         console.log("New Message", data);
-        //location.reload();
+        $('#table').load(document.URL + '# .table');
     };
     ws.onclose = function() {
         // @todo: Implement reconnect.
         console.log("Closed!");
+        location.reload();
     };
 });
