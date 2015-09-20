@@ -1,6 +1,7 @@
 from datetime import timedelta
 from expvar.stats import stats
 import logging
+import datetime
 from oid_translate import ObjectId
 
 from pyasn1.codec.ber import decoder
@@ -144,16 +145,18 @@ class TrapperCallback(object):
         logging.info("Trap Received (%s) from %s", objid.name, host)
         stats.incr("traps_accepted", 1)
 
-        message_trap = json.dumps(trap.to_dict())
-        logging.warning("message %s", message_trap)
+        message_dict = trap.to_dict()
+        logging.info("message_dict %s", message_dict)
+        message_json = json.dumps(message_dict)
+        logging.info("message %s", message_json)
 
         duplicate = False
         try:
             stats.incr("db_write_attempted", 1)
             self.conn.add(trap)
             self.conn.commit()
-            c.publish('root', message_trap)
-            logging.warning("message %s published into channel root ", message_trap)
+            c.publish('root', message_json)
+            logging.info("message %s published into channel root ", message_json)
             stats.incr("db_write_successful", 1)
         except OperationalError as err:
             self.conn.rollback()
