@@ -6,7 +6,7 @@ import random
 import sys
 from threading import Timer
 
-import tornadoredis
+
 import tornado
 from sqlalchemy import desc, or_
 
@@ -15,6 +15,7 @@ from tornado import gen
 from trapdoor.utils import TrapdoorHandler
 from trapperkeeper.models import Notification, VarBind
 
+import tornadoredis
 
 def filter_query(query, host, oid, severity):
     if host is not None:
@@ -189,97 +190,36 @@ class ApiTraps(TrapdoorHandler):
 
         self.write(json.dumps([trap.to_dict() for trap in traps]))
 
-class ChatSocketHandler(tornado.websocket.WebSocketHandler):
-    """
-    Handler for dealing with websockets. It receives, stores and distributes new messages.
+class MessageHandler(tornado.websocket.WebSocketHandler):
 
-    TODO: Not proper authentication handling!
-    """
+    def __init__(self, *args, **kwargs):
+        super(MessageHandler, self).__init__(*args, **kwargs)
+        self.listen()
 
-    @gen.engine
-    def open(self, channel='root'):
-        """
-        Called when socket is opened. It will subscribe for the given chat channel based on Redis Pub/Sub.
-        """
-        # Check if channel is set.
-        if not channel:
-            self.write_message({'error': 1, 'textStatus': 'Error: No channel specified'})
-            self.close()
-            return
-        self.channel = str(channel)
-        self.new_message_send = False
-        # Create a Redis connection.
+    @tornado.gen.engine
+    def listen(self):
         self.client = tornadoredis.Client()
         self.client.connect()
-        # Subscribe to the given chat channel.
-        self.client.subscribe(self.channel)
-        self.subscribed = True
-        self.client.listen(self.on_messages_published)
-        logging.info('New user connected to chat channel ' + channel)
+        yield tornado.gen.Task(self.client.subscribe, 'root')
+        self.client.listen(self.on_message)
 
-
-    def on_messages_published(self, message):
-        """
-        Callback for listening to subscribed chat channel based on Redis Pub/Sub. When a new message is stored
-        in the given Redis chanel this method will be called.
-        """
-        # Decode message
-        m = tornado.escape.json_decode(message.body)
-        # Send messages to other clients and finish connection.
-        self.write_message(dict(messages=[m]))
-
-
-    def on_message(self, data):
-        """
-        Callback when new message received vie the socket.
-        """
-        logging.info('Received new message %r', data)
-        try:
-            # Parse input to message dict.
-            datadecoded = tornado.escape.json_decode(data)
-            message = {
-                '_id': ''.join(random.choice(string.ascii_uppercase) for i in range(12)),
-                'from': self.get_secure_cookie('user', str(datadecoded['user'])),
-                'body': tornado.escape.linkify(datadecoded["body"]),
-            }
-            if not message['from']:
-                logging.warning("Error: Authentication missing")
-                message['from'] = 'Guest'
-        except Exception, err:
-            # Send an error back to client.
-            self.write_message({'error': 1, 'textStatus': 'Bad input data ... ' + str(err) + data})
-            return
-
-        # Save message and publish in Redis.
-        try:
-            # Convert to JSON-literal.
-            message_encoded = tornado.escape.json_encode(message)
-            # Persistently store message in Redis.
-            self.application.client.rpush(self.channel, message_encoded)
-            # Publish message in Redis channel.
-            self.application.client.publish(self.channel, message_encoded)
-        except Exception, err:
-            e = str(sys.exc_info()[0])
-            # Send an error back to client.
-            self.write_message({'error': 1, 'textStatus': 'Error writing to database: ' + str(err)})
-            return
-
-        # Send message through the socket to indicate a successful operation.
-        self.write_message(message)
-        return
-
+    def on_message(self, msg):
+        logging.info("received message %s", msg)
+        if msg.kind == 'message':
+            self.write_message(str(msg.body))
+        if msg.kind == 'disconnect':
+            # Do not try to reconnect, just send a message back
+            # to the client and close the client connection
+            self.write_message('The connection terminated '
+                               'due to a Redis server error.')
+            self.close()
 
     def on_close(self):
         """
         Callback when the socket is closed. Frees up resource related to this socket.
         """
         logging.info("socket closed, cleaning up resources now")
-        if hasattr(self, 'client'):
-            # Unsubscribe if not done yet.
-            if self.subscribed:
-                self.client.unsubscribe(self.channel)
-                self.subscribed = False
-            # Disconnect connection after delay due to this issue:
-            # https://github.com/evilkost/brukva/issues/25
-            t = Timer(0.1, self.client.disconnect)
-            t.start()
+        if self.client.subscribed:
+            self.client.unsubscribe('root')
+            self.client.disconnect()
+

@@ -3,8 +3,6 @@ from expvar.stats import stats
 import logging
 from oid_translate import ObjectId
 
-import tornadoredis
-
 from pyasn1.codec.ber import decoder
 from pyasn1.type.error import ValueConstraintError
 from pysnmp.proto import api
@@ -18,6 +16,11 @@ from trapperkeeper.constants import SNMP_VERSIONS
 from trapperkeeper.models import Notification
 from trapperkeeper.utils import parse_time_string, send_trap_email
 
+import json
+import tornadoredis
+
+c = tornadoredis.Client()
+c.connect()
 
 try:
     from trapperkeeper_dde_plugin import run as dde_run
@@ -35,8 +38,6 @@ class TrapperCallback(object):
         self.hostname = socket.gethostname()
         self.resolver = resolver
         self.community = community
-        self.client = tornadoredis.Client()
-        self.client.connect()
 
     def __call__(self, *args, **kwargs):
         try:
@@ -68,7 +69,7 @@ class TrapperCallback(object):
         ctxt = dict(trap=trap, dest_host=self.hostname)
         try:
             stats.incr("mail_sent_attempted", 1)
-            send_trap_email(recipients, "trapperkeeper",
+            send_trap_email(recipients, "trapperkeeper@localhost",
                             subject, self.template_env, ctxt)
             stats.incr("mail_sent_successful", 1)
         except socket.error as err:
@@ -143,13 +144,16 @@ class TrapperCallback(object):
         logging.info("Trap Received (%s) from %s", objid.name, host)
         stats.incr("traps_accepted", 1)
 
+        message_trap = json.dumps(trap.to_dict())
+        logging.warning("message %s", message_trap)
 
         duplicate = False
         try:
             stats.incr("db_write_attempted", 1)
             self.conn.add(trap)
             self.conn.commit()
-            self.client.publish('root',trap.to_dict())
+            c.publish('root', message_trap)
+            logging.warning("message %s published into channel root ", message_trap)
             stats.incr("db_write_successful", 1)
         except OperationalError as err:
             self.conn.rollback()

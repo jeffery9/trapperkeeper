@@ -7,8 +7,7 @@ HANDLERS = [
     (r"/resolve_all/?", handlers.ResolveAll),
 
     #websocket
-    (r"/ChatSocket", handlers.ChatSocketHandler),
-    (r"/ChatSocket/([a-zA-Z0-9]*)$", handlers.ChatSocketHandler),
+    (r"/message_wall", handlers.MessageHandler),
 
     # API
     (r"/api/varbinds/(?P<notification_id>\d+)", handlers.ApiVarBinds),
