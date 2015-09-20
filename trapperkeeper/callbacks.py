@@ -3,6 +3,8 @@ from expvar.stats import stats
 import logging
 from oid_translate import ObjectId
 
+import tornadoredis
+
 from pyasn1.codec.ber import decoder
 from pyasn1.type.error import ValueConstraintError
 from pysnmp.proto import api
@@ -33,6 +35,8 @@ class TrapperCallback(object):
         self.hostname = socket.gethostname()
         self.resolver = resolver
         self.community = community
+        self.client = tornadoredis.Client()
+        self.client.connect()
 
     def __call__(self, *args, **kwargs):
         try:
@@ -145,6 +149,7 @@ class TrapperCallback(object):
             stats.incr("db_write_attempted", 1)
             self.conn.add(trap)
             self.conn.commit()
+            self.client.publish('root',trap.to_dict())
             stats.incr("db_write_successful", 1)
         except OperationalError as err:
             self.conn.rollback()
